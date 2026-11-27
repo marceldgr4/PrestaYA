@@ -1,0 +1,14 @@
+node_modules
+**/node_modules
+**/dist
+**/build
+**/coverage
+.git
+.github
+.husky
+.env
+.env.*
+!.env.example
+**/*.log
+.expo
+.DS_Store
