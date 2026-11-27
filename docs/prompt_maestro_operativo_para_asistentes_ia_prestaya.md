@@ -11,11 +11,11 @@ Su objetivo es garantizar que cada iteración de desarrollo respete estrictament
 
 ### 2.1 Fuentes de Verdad Obligatorias
 Antes de diseñar, proponer o modificar código, la IA **debe consultar y respetar** como fuentes únicas de verdad:
-1. `docs/01_DOCUMENTACION_TECNICA_PRESTAYA.md` (Requisitos funcionales `RF-001` a `RF-025`, requisitos no funcionales `RNF-01` a `RNF-14`, reglas de negocio `RN-01` a `RN-10`, roles y marco legal).
-2. `docs/02_ARQUITECTURA_DIAGRAMAS_Y_DESARROLLO_PRESTAYA.md` (Arquitectura modular, diagramas de estados y secuencia, esquema relacional PostgreSQL, estructura de carpetas del monorepo, convenciones de código y Docker).
+1. `docs/documentaci_n_t_cnica_y_especificaci_n_de_requisitos_prestaya.md` (Requisitos funcionales `RF-001` a `RF-025`, requisitos no funcionales `RNF-01` a `RNF-14`, reglas de negocio `RN-01` a `RN-10`, roles y marco legal).
+2. `docs/arquitectura_diagramas_y_gu_a_de_desarrollo_prestaya.md` (Arquitectura modular, diagramas de estados y secuencia, esquema relacional PostgreSQL, estructura de carpetas del monorepo, convenciones de código y Docker).
 
 ### 2.2 Restricciones Inquebrantables de Ingeniería y Negocio
-1. **Cero Invención de Reglas Financieras o Legales:** La IA no debe inventar tasas de interés, fórmulas de amortización, días de gracia ni políticas de aprobación que no estén aprobadas en la documentación. Si una regla figura como *Pendiente de Aprobación* en `01_DOCUMENTACION_TECNICA_PRESTAYA.md`, la IA debe implementarla de forma parametrizable y solicitar confirmación antes de activar valores por defecto en producción.
+1. **Cero Invención de Reglas Financieras o Legales:** La IA no debe inventar tasas de interés, fórmulas de amortización, días de gracia ni políticas de aprobación que no estén aprobadas en la documentación. Si una regla figura como *Pendiente de Aprobación* en `docs/documentaci_n_t_cnica_y_especificaci_n_de_requisitos_prestaya.md`, la IA debe implementarla de forma parametrizable y solicitar confirmación antes de activar valores por defecto en producción.
 2. **Bloqueo de Tasas No Validadas:** Las tasas ilustrativas iniciales (`10% semanal`, `15% quincenal`, `20% mensual`) **nunca** deben habilitarse por defecto. Todo cálculo financiero debe pasar por `LegalRatePolicy` verificando que la tasa efectiva anual (`E.A.`) no supere el tope legal configurado.
 3. **Supervisión Administrativa al 100 %:** Ningún endpoint, job o automatización puede aprobar solicitudes ni desembolsar dinero sin intervención explícita de un `ADMINISTRADOR` autenticado con MFA.
 4. **Separación entre Aprobación, Desembolso y Pago:**
@@ -34,7 +34,7 @@ Antes de diseñar, proponer o modificar código, la IA **debe consultar y respet
 
 ## 3. Prompt Operativo Reutilizable (Copiar y Pegar en Claude / ChatGPT)
 
-Copia el siguiente bloque completo al iniciar cada sesión de desarrollo en Claude o ChatGPT, adjuntando los archivos `01_DOCUMENTACION_TECNICA_PRESTAYA.md`, `02_ARQUITECTURA_DIAGRAMAS_Y_DESARROLLO_PRESTAYA.md` y el contexto del módulo a trabajar:
+Copia el siguiente bloque completo al iniciar cada sesión de desarrollo en Claude o ChatGPT, adjuntando los archivos `docs/documentaci_n_t_cnica_y_especificaci_n_de_requisitos_prestaya.md`, `docs/arquitectura_diagramas_y_gu_a_de_desarrollo_prestaya.md` y el contexto del módulo a trabajar:
 
 ```markdown
 ### ROL Y CONTEXTO
@@ -44,8 +44,8 @@ Estamos desarrollando **PrestaYA**, una plataforma multiplataforma (Web Responsi
 
 ### FUENTES DE VERDAD DEL PROYECTO
 Tus decisiones técnicas y de negocio deben regirse estrictamente por los documentos adjuntos del repositorio:
-1. `01_DOCUMENTACION_TECNICA_PRESTAYA.md` (Requisitos RF/RNF, Reglas de Negocio RN, Roles RBAC y Marco Legal).
-2. `02_ARQUITECTURA_DIAGRAMAS_Y_DESARROLLO_PRESTAYA.md` (Arquitectura Monolito Modular, Diagramas de Estados/Secuencia, Modelo Relacional PostgreSQL, Estructura de Carpetas y Convenciones).
+1. `docs/documentaci_n_t_cnica_y_especificaci_n_de_requisitos_prestaya.md` (Requisitos RF/RNF, Reglas de Negocio RN, Roles RBAC y Marco Legal).
+2. `docs/arquitectura_diagramas_y_gu_a_de_desarrollo_prestaya.md` (Arquitectura Monolito Modular, Diagramas de Estados/Secuencia, Modelo Relacional PostgreSQL, Estructura de Carpetas y Convenciones).
 
 ### REGLAS NO NEGOCIABLES
 1. **No inventes requisitos ni reglas financieras:** Si un parámetro de negocio está marcado como pendiente de aprobación (ej. sistema de amortización, días de gracia, prelación de pagos), impleméntalo desacoplado/parametrizable e indica explícitamente la validación requerida.
@@ -68,7 +68,7 @@ Sigue estrictamente estos pasos:
 Estructura todas tus entregas de implementación con las siguientes secciones:
 - **1. Objetivo y Alcance de la Tarea** (trazabilidad con `RF-XXX` y `RN-XX`)
 - **2. Análisis Técnico y Dependencias**
-- **3. Archivos Involucrados** (rutas exactas según `02_ARQUITECTURA_DIAGRAMAS_Y_DESARROLLO_PRESTAYA.md`)
+- **3. Archivos Involucrados** (rutas exactas según `docs/arquitectura_diagramas_y_gu_a_de_desarrollo_prestaya.md`)
 - **4. Implementación Detallada** (código completo de cada archivo creado o modificado)
 - **5. Pruebas Automatizadas y Criterios de Aceptación**
 - **6. Comandos de Ejecución y Sugerencia de Commit Git**
@@ -85,7 +85,7 @@ Estructura todas tus entregas de implementación con las siguientes secciones:
 
 Antes de dar por finalizada cualquier iteración generada con ayuda de la IA, el desarrollador responsable debe verificar:
 
-* [ ] ¿El código respeta exactamente las rutas de carpetas definidas en `02_ARQUITECTURA_DIAGRAMAS_Y_DESARROLLO_PRESTAYA.md`?
+* [ ] ¿El código respeta exactamente las rutas de carpetas definidas en `docs/arquitectura_diagramas_y_gu_a_de_desarrollo_prestaya.md`?
 * [ ] ¿Las entidades y migraciones coinciden con los tipos exactos (`NUMERIC(18,2)`, `UUID`, `TIMESTAMPTZ`) del modelo relacional?
 * [ ] ¿Todos los endpoints nuevos validan DTOs de entrada, autenticación JWT, rol RBAC y propiedad del recurso en el servidor?
 * [ ] ¿Las operaciones financieras críticas escriben en `audit_logs` y `outbox_events` dentro de la misma transacción ACID?
