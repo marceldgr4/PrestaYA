@@ -1,0 +1,14 @@
+packages:
+  - "apps/*"
+  - "packages/*"
+
+# Cadena de suministro: solo estos paquetes pueden ejecutar scripts de instalación.
+# Cualquier otro paquete con postinstall queda bloqueado.
+onlyBuiltDependencies:
+  - "@nestjs/core"
+  - "@prisma/engines"
+  - "prisma"
+
+# Rechaza versiones publicadas hace menos de 3 días (en minutos).
+# Mitiga ataques de paquetes comprometidos recién publicados.
+minimumReleaseAge: 4320

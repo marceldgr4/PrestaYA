@@ -1,0 +1,41 @@
+# Dependencias
+node_modules/
+.pnpm-store/
+
+# Builds
+dist/
+build/
+coverage/
+*.tsbuildinfo
+apps/backend/src/generated/
+
+# Variables de entorno y secretos (NUNCA subir)
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.p12
+*.pfx
+secrets/
+
+# Logs
+logs/
+*.log
+
+# JetBrains (solo se comparten las configuraciones de .run/)
+.idea/
+*.iml
+out/
+
+# Sistema operativo
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Expo / móvil (futuro)
+.expo/
+*.jks
+*.keystore
+google-services.json
+GoogleService-Info.plist
