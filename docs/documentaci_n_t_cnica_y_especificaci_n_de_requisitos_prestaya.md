@@ -58,9 +58,9 @@ De acuerdo con la jerarquía documental establecida (`Propuesta_PrestaYa_v1.1` >
 | :--- | :--- | :--- | :--- | :--- |
 | **CONF-01** | **Stack Tecnológico Backend y Web** | Propone **Node.js + Express + TypeScript** para backend y **React + TypeScript** para web. | Proponen **NestJS + TypeScript** para backend y **Next.js + TypeScript** (o React/Next.js) para web, y **React Native + Expo** para móvil. | **Recomendación Técnica:** Adoptar **NestJS + TypeScript** en backend (provee inyección de dependencias nativa, arquitectura modular estricta, validación con `class-validator` y soporte OpenAPI integrado) y **React (Vite) o Next.js + TypeScript** en web, junto con **React Native + Expo** en móvil. *Requiere confirmación del desarrollador/propietario antes de inicializar repositorios.* |
 | **CONF-02** | **Alcance de Plataforma (Escenario A vs. B)** | Presenta dos escenarios comerciales: Escenario A (Solo Web Responsiva) y Escenario B (Web + Apps Móviles Android/iOS). | Asumen directamente el desarrollo multiplataforma (Web + Android + iOS) con backend compartido. | **Regla Aplicada:** Se documenta la arquitectura bajo el **Escenario B (Multiplataforma: Web + Android + iOS)** conforme al alcance solicitado para PrestaYA, manteniendo desacoplamiento total vía API REST para permitir despliegue web temprano mientras se aprueban tiendas móviles. |
-| **CONF-03** | **Granularidad de Estados de Solicitud y Pago** | Define estados simplificados en sección 6.1 (`pendiente`, `en revisión`, `aprobada`, `rechazada`), pero en `RF-010` y `RF-011` exige oferta/contrato antes de desembolso. | Detallan máquinas de estado completas: `BORRADOR -> ENVIADA -> EN_REVISION -> REQUIERE_INFORMACION -> APROBADA -> ACEPTADA -> LISTA_PARA_DESEMBOLSO -> DESEMBOLSADA`. | **Resolución:** Se adopta la máquina de estados completa de los documentos complementarios porque satisface estrictamente las reglas `RF-010`, `RF-011` y `RN-06` de la propuesta principal. |
+| **CONF-03** | **Granularidad de Estados de Solicitud y Pago** | Define estados simplificados en sección 6.1 (`pendiente`, `en revisión`, `aprobada`, `rechazada`), pero en `RF-010` y `RF-011` exige oferta/contrato antes de desembolso. | Detallan máquinas de estado completas: `BORRADOR -> EN_REVISION -> REQUIERE_INFORMACION -> APROBADA -> LISTA_PARA_DESEMBOLSO -> DESEMBOLSADA` (con `ENVIADA` y `ACEPTADA` como transiciones inmediatas hacia `EN_REVISION` y `LISTA_PARA_DESEMBOLSO`). | **Resolución:** Se adopta la máquina de estados completa de `docs/arquitectura_diagramas_y_gu_a_de_desarrollo_prestaya.md` (Sección 2.6) porque satisface estrictamente las reglas `RF-010`, `RF-011` y `RN-06` de la propuesta principal. |
 | **CONF-04** | **Tasas Comerciales vs. Legalidad en Colombia** | El solicitante indicó tasas ilustrativas de `10% semanal`, `15% quincenal` y `20% mensual`, pero el propio documento advierte no activarlas en producción sin revisión legal. | Exigen bloqueo automático en el motor financiero frente al límite de usura certificado por la Superintendencia Financiera de Colombia (`28,34% E.A.` a nov/2026). | **Confirmado:** Las tasas comerciales iniciales quedan **bloqueadas por defecto** en producción. El sistema implementará un motor parametrizable con validación estricta contra topes legales vigentes (`LegalRatePolicy`). |
-| **CONF-05** | **Nomenclatura de Tablas en Base de Datos** | Menciona `payout_destinations`, `payments`, `audit_logs`. | `SRS` menciona `payout_methods`, `payment_transactions`, `audit_events`. | **Recomendación Técnica:** Unificar el esquema relacional en inglés estándar (`snake_case` plural) conciliando ambas propuestas (ver Sección 6.3 del Archivo 2). |
+| **CONF-05** | **Nomenclatura de Tablas en Base de Datos** | Menciona `payout_destinations`, `payments`, `audit_logs`. | `SRS` menciona `payout_methods`, `payment_transactions`, `audit_events`. | **Recomendación Técnica:** Unificar el esquema relacional en inglés estándar (`snake_case` plural) conciliando ambas propuestas (ver Sección 3.3 de `docs/arquitectura_diagramas_y_gu_a_de_desarrollo_prestaya.md`). |
 
 ---
 
@@ -460,7 +460,7 @@ A continuación se consolidan y estandarizan los **25 Requisitos Funcionales** d
   1. El administrador revisa el comprobante (URL firmada), referencia y valor declarado.
   2. Si confirma el pago, ingresa monto efectivamente recibido, fecha efectiva y referencia bancaria.
   3. En una transacción ACID con bloqueo pesimista (`SELECT FOR UPDATE`) sobre el préstamo y sus cuotas:
-     * Crea el asiento definitivo en `payments` / `payment_transactions` (con `Idempotency-Key`).
+     * Crea el asiento definitivo en `payments` (con `Idempotency-Key`).
      * Aplica el monto a las cuotas correspondientes siguiendo el orden de prelación aprobado (`payment_allocations`: gastos/mora autorizados -> interés causado -> capital).
      * Actualiza `amount_paid` y estado de cada cuota (`PAGADA_PARCIAL` o `PAGADA`).
      * Recalcula el saldo insoluto del préstamo; si llega a `0.00`, cambia estado del préstamo a `PAGADO`.
@@ -664,7 +664,7 @@ Para la etapa inicial (MVP) y considerando un equipo de desarrollo acotado, se a
 5. **Object Storage Privado (`S3 Compatible`):** Almacenamiento cifrado de documentos KYC, contratos PDF y comprobantes de pago/desembolso.
 6. **Bus de Eventos / Cola (`Redis` + `BullMQ`):** Procesamiento desacoplado de *Transactional Outbox*, envío de correos, push notifications, tareas programadas (mora/recordatorios) y generación de reportes.
 
-*(El detalle granular, diagramas Mermaid, modelo entidad-relación y estructura de carpetas se especifican en el archivo `02_ARQUITECTURA_DIAGRAMAS_Y_DESARROLLO_PRESTAYA.md`).*
+*(El detalle granular, diagramas Mermaid, modelo entidad-relación y estructura de carpetas se especifican en el archivo `docs/arquitectura_diagramas_y_gu_a_de_desarrollo_prestaya.md`).*
 
 ---
 

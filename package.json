@@ -15,7 +15,13 @@
     "typecheck": "pnpm -r --if-present typecheck",
     "test": "pnpm -r --if-present test",
     "format": "prettier --write .",
-    "format:check": "prettier --check ."
+    "format:check": "prettier --check .",
+    "secrets:generate": "node infra/scripts/generate-secrets.mjs",
+    "infra:up": "docker compose up -d",
+    "infra:down": "docker compose down",
+    "infra:reset": "docker compose down -v",
+    "infra:ps": "docker compose ps -a",
+    "infra:logs": "docker compose logs -f"
   },
   "devDependencies": {
     "@commitlint/cli": "^21.2.4",

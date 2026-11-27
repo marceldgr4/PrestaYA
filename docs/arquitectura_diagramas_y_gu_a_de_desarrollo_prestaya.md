@@ -1,4 +1,4 @@
-◊# ARQUITECTURA, DIAGRAMAS Y GUÍA DE IMPLEMENTACIÓN — PROYECTO PRESTAYA
+# ARQUITECTURA, DIAGRAMAS Y GUÍA DE IMPLEMENTACIÓN — PROYECTO PRESTAYA
 
 ## Control Documental
 
@@ -8,7 +8,7 @@
 | **Código del Documento** | `DOC-PRESTAYA-02`                                                                       |
 | **Versión**              | `1.1.0-RC`                                                                              |
 | **Fecha**                | 27 de noviembre de 2026                                                                 |
-| **Documento Padre**      | `01_DOCUMENTACION_TECNICA_PRESTAYA.md`                                                  |
+| **Documento Padre**      | `docs/documentaci_n_t_cnica_y_especificaci_n_de_requisitos_prestaya.md`                 |
 | **Audiencia**            | Arquitectos de Software, Desarrolladores Full Stack (Backend, Web, Mobile), DevOps y QA |
 
 ---
@@ -446,15 +446,17 @@ prestaya/
 │       ├── web-ci.yml
 │       └── mobile-ci.yml
 ├── docs/                          # Documentación técnica oficial del repositorio
-│   ├── 01_DOCUMENTACION_TECNICA_PRESTAYA.md
-│   ├── 02_ARQUITECTURA_DIAGRAMAS_Y_DESARROLLO_PRESTAYA.md
-│   ├── 03_PROMPT_MAESTRO_DESARROLLO_PRESTAYA.md
+│   ├── documentaci_n_t_cnica_y_especificaci_n_de_requisitos_prestaya.md
+│   ├── arquitectura_diagramas_y_gu_a_de_desarrollo_prestaya.md
+│   ├── prompt_maestro_operativo_para_asistentes_ia_prestaya.md
 │   └── adr/                       # Architecture Decision Records (decisiones técnicas clave)
 ├── infra/                         # Configuración de infraestructura y contenedores locales
 │   ├── docker/
+│   │   ├── postgres/
+│   │   │   └── init/              # Scripts SQL iniciales montados en /docker-entrypoint-initdb.d
 │   │   ├── backend.Dockerfile     # Imagen multi-stage optimizada para API NestJS
 │   │   └── web.Dockerfile         # Imagen multi-stage para Frontend Web
-│   └── scripts/                   # Scripts de inicialización DB y backups locales
+│   └── scripts/                   # Scripts de utilidad (ej. generate-secrets.mjs) y backups locales
 ├── packages/
 │   └── shared/                    # Tipos TypeScript, enums de estados y constantes compartidas
 │       ├── src/
@@ -511,7 +513,7 @@ prestaya/
 │       └── package.json
 ├── .env.example                   # Plantilla de variables de entorno (SIN secretos reales)
 ├── .gitignore                     # Exclusión de node_modules, .env, builds y archivos temporales
-├── docker-compose.yml             # Orquestación local (PostgreSQL, Redis, MinIO S3, Mailpit, Backend)
+├── docker-compose.yaml            # Orquestación local (PostgreSQL, Redis, MinIO S3, Mailpit; y Backend en Fase 2+)
 └── package.json                   # Configuración raíz del monorepo
 ```
 
@@ -528,82 +530,86 @@ prestaya/
 ### 6.1 Requisitos Previos
 
 - **Docker Engine** `>= 24.0` y **Docker Compose** `>= 2.20`
-- **Node.js** `>= 20.11 LTS` y **pnpm** `>= 9.0`
+- **Node.js** `>= 22.12.0` (`.nvmrc`: `26`) y **pnpm** `>= 10.16.0` (`packageManager`: `pnpm@10.34.9`)
 - **Git** `>= 2.40`
 
-### 6.2 `docker-compose.yml` para Desarrollo Local
+### 6.2 `docker-compose.yaml` para Desarrollo Local
 
 El entorno local emula completamente la infraestructura de producción utilizando servicios contenedores ligeros y gratuitos (PostgreSQL, Redis, MinIO como reemplazo local de Amazon S3 y Mailpit para capturar correos transaccionales sin enviar spam real).
 
-```yaml
-version: "3.9"
+> **Nota:** El archivo `docker-compose.yaml` real del repositorio usa imágenes endurecidas de Chainguard para MinIO (`cgr.dev/chainguard/minio`), autenticación `scram-sha-256` en PostgreSQL, contraseña en Redis y puertos expuestos solo en `127.0.0.1`. El bloque YAML a continuación es una referencia simplificada; consulta el archivo `docker-compose.yaml` en la raíz del proyecto para la versión completa.
 
+```yaml
 services:
   postgres:
     image: postgres:16-alpine
     container_name: prestaya-postgres
     restart: unless-stopped
     environment:
-      POSTGRES_USER: ${DB_USER:-prestaya_dev}
-      POSTGRES_PASSWORD: ${DB_PASSWORD:-dev_password_change_me}
-      POSTGRES_DB: ${DB_NAME:-prestaya_db}
+      POSTGRES_USER: ${DB_USER:?Falta DB_USER en .env}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:?Falta DB_PASSWORD en .env}
+      POSTGRES_DB: ${DB_NAME:?Falta DB_NAME en .env}
+      POSTGRES_INITDB_ARGS: '--auth-host=scram-sha-256 --data-checksums'
       TZ: UTC
     ports:
-      - "5432:5432"
+      - '127.0.0.1:${DB_PORT:-5432}:5432'
     volumes:
       - postgres_data:/var/lib/postgresql/data
+      - ./infra/docker/postgres/init:/docker-entrypoint-initdb.d:ro
     networks:
       - prestaya_net
     healthcheck:
-      test:
-        [
-          "CMD-SHELL",
-          "pg_isready -U ${DB_USER:-prestaya_dev} -d ${DB_NAME:-prestaya_db}",
-        ]
+      test: ['CMD-SHELL', 'pg_isready -U "$${POSTGRES_USER}" -d "$${POSTGRES_DB}"']
       interval: 10s
       timeout: 5s
       retries: 5
+      start_period: 20s
 
   redis:
     image: redis:7-alpine
     container_name: prestaya-redis
     restart: unless-stopped
-    command: redis-server --appendonly yes
+    command: redis-server --appendonly yes --maxmemory-policy noeviction --requirepass "$$REDIS_PASSWORD"
+    environment:
+      REDIS_PASSWORD: ${REDIS_PASSWORD:?Falta REDIS_PASSWORD en .env}
     ports:
-      - "6379:6379"
+      - '127.0.0.1:${REDIS_PORT:-6379}:6379'
     volumes:
       - redis_data:/data
     networks:
       - prestaya_net
     healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
+      test: ['CMD-SHELL', 'REDISCLI_AUTH="$$REDIS_PASSWORD" redis-cli --no-auth-warning ping | grep -q PONG']
       interval: 10s
       timeout: 5s
       retries: 5
 
   minio:
-    image: minio/minio:latest
+    image: cgr.dev/chainguard/minio:latest
     container_name: prestaya-minio
     restart: unless-stopped
-    command: server /data --console-address ":9001"
+    user: '65532:65532'
+    command: ['server', '/data', '--console-address', ':9001']
     environment:
-      MINIO_ROOT_USER: ${S3_ACCESS_KEY:-minioadmin}
-      MINIO_ROOT_PASSWORD: ${S3_SECRET_KEY:-minioadmin123}
+      MINIO_ROOT_USER: ${S3_ACCESS_KEY:?Falta S3_ACCESS_KEY en .env}
+      MINIO_ROOT_PASSWORD: ${S3_SECRET_KEY:?Falta S3_SECRET_KEY en .env}
     ports:
-      - "9000:9000" # API S3 compatible
-      - "9001:9001" # Consola Web MinIO
+      - '127.0.0.1:9000:9000' # API S3 compatible
+      - '127.0.0.1:9001:9001' # Consola Web MinIO
     volumes:
       - minio_data:/data
     networks:
       - prestaya_net
 
+  # minio-init: crea automáticamente el bucket privado al arrancar (ver docker-compose.yaml)
+
   mailpit:
-    image: axllent/mailpit:latest
+    image: axllent/mailpit:v1.34.0
     container_name: prestaya-mailpit
     restart: unless-stopped
     ports:
-      - "1025:1025" # Servidor SMTP local
-      - "8025:8025" # Bandeja Web de pruebas
+      - '127.0.0.1:1025:1025' # Servidor SMTP local
+      - '127.0.0.1:8025:8025' # Bandeja Web de pruebas
     networks:
       - prestaya_net
 
@@ -619,6 +625,8 @@ networks:
 
 ### 6.3 Plantilla de Variables de Entorno (`.env.example`)
 
+El archivo `.env.example` usa marcadores `__SECRET_*__` que el script `pnpm secrets:generate` reemplaza automáticamente por valores aleatorios criptográficamente seguros al generar `.env`. También resuelve las interpolaciones `${VAR}` a valores literales (Prisma y NestJS no expanden variables).
+
 ```env
 # --- APLICACIÓN ---
 NODE_ENV=development
@@ -627,30 +635,36 @@ APP_TIMEZONE=America/Bogota
 CORS_ORIGINS=http://localhost:5173,http://localhost:8081
 
 # --- BASE DE DATOS POSTGRESQL ---
-DATABASE_URL=postgresql://prestaya_dev:dev_password_change_me@localhost:5432/prestaya_db?schema=public
+DB_USER=prestaya_dev
+DB_PASSWORD=__SECRET_HEX_24__
+DB_NAME=prestaya_db
+DB_PORT=5432
+DATABASE_URL=postgresql://${DB_USER}:${DB_PASSWORD}@localhost:${DB_PORT}/${DB_NAME}?schema=public
+DATABASE_URL_TEST=postgresql://${DB_USER}:${DB_PASSWORD}@localhost:${DB_PORT}/prestaya_test?schema=public
 
-# --- REDIS / COLAS ---
+# --- REDIS (colas BullMQ y rate limit) ---
 REDIS_HOST=localhost
 REDIS_PORT=6379
+REDIS_PASSWORD=__SECRET_HEX_24__
 
-# --- SEGURIDAD Y CIFRADO (Generar valores aleatorios fuertes en cada entorno) ---
-JWT_ACCESS_SECRET=replace_with_64_char_random_hex
+# --- SEGURIDAD Y CIFRADO ---
+JWT_ACCESS_SECRET=__SECRET_HEX_64__
 JWT_ACCESS_EXPIRES_IN=15m
-JWT_REFRESH_SECRET=replace_with_different_64_char_random_hex
+JWT_REFRESH_SECRET=__SECRET_HEX_64__
 JWT_REFRESH_EXPIRES_IN=7d
-PII_ENCRYPTION_KEY=replace_with_32_byte_base64_aes256_key
-PII_HASH_PEPPER=replace_with_random_hmac_pepper
+PII_ENCRYPTION_KEY=__SECRET_B64_32__
+PII_HASH_PEPPER=__SECRET_HEX_32__
 
 # --- ALMACENAMIENTO PRIVADO S3 / MINIO ---
 S3_ENDPOINT=http://localhost:9000
 S3_REGION=us-east-1
 S3_BUCKET_PRIVATE=prestaya-private-docs
-S3_ACCESS_KEY=minioadmin
-S3_SECRET_KEY=minioadmin123
+S3_ACCESS_KEY=prestaya_minio
+S3_SECRET_KEY=__SECRET_HEX_24__
 S3_FORCE_PATH_STYLE=true
 S3_PRESIGNED_TTL_SECONDS=600
 
-# --- NOTIFICACIONES ---
+# --- CORREO (Mailpit local) ---
 SMTP_HOST=localhost
 SMTP_PORT=1025
 SMTP_FROM=no-reply@prestaya.local
@@ -668,14 +682,16 @@ SMTP_FROM=no-reply@prestaya.local
 
 ### 6.5 Comandos Operativos Docker y Solución de Problemas
 
-- **Levantar servicios base:** `docker compose up -d`
-- **Ver logs en tiempo real:** `docker compose logs -f postgres redis minio`
-- **Reiniciar un servicio:** `docker compose restart postgres`
-- **Detener servicios conservando datos:** `docker compose down`
-- **Resetear entorno limpio (elimina volúmenes locales):** `docker compose down -v`
+- **Generar `.env` con secretos aleatorios:** `pnpm secrets:generate`
+- **Levantar servicios base:** `pnpm infra:up` (alias de `docker compose up -d`)
+- **Ver logs en tiempo real:** `pnpm infra:logs` (o `docker compose logs -f postgres redis minio`)
+- **Estado de los contenedores:** `pnpm infra:ps`
+- **Detener servicios conservando datos:** `pnpm infra:down`
+- **Resetear entorno limpio (elimina volúmenes locales):** `pnpm infra:reset` (alias de `docker compose down -v`)
 - **Solución de problemas frecuentes:**
-  - _Puerto `5432` ocupado:_ Detener servicio PostgreSQL nativo del sistema operativo (`sudo service postgresql stop` o desde Servicios en Windows) antes de ejecutar `docker compose up -d`.
-  - _Error de bucket inexistente en MinIO:_ Acceder a `http://localhost:9001` y crear el bucket privado `prestaya-private-docs` (o ejecutar el script de inicialización `infra/scripts/init-minio.sh`).
+  - _Puerto `5432` ocupado:_ Detener servicio PostgreSQL nativo del sistema operativo (`sudo service postgresql stop` o desde Servicios en Windows) antes de ejecutar `pnpm infra:up`.
+  - _Error de bucket inexistente en MinIO:_ El servicio `minio-init` crea automáticamente el bucket privado `prestaya-private-docs` al iniciar el stack. Si falló, revisa `docker compose logs minio-init`; para recrear manualmente accede a `http://localhost:9001`.
+  - _Base de datos `prestaya_test` no existe:_ El script `infra/docker/postgres/init/01-create-test-database.sql` solo se ejecuta al inicializar el volumen por primera vez. Si ya existía, ejecuta `pnpm infra:reset` seguido de `pnpm infra:up`.
 
 ---
 
@@ -753,14 +769,14 @@ git checkout develop
 # 2. Instalar dependencias de todo el monorepo
 pnpm install
 
-# 3. Configurar variables de entorno locales (editar valores si es necesario, nunca subir .env)
-cp .env.example .env
+# 3. Generar el archivo .env con secretos aleatorios seguros (nunca subir .env a Git)
+pnpm secrets:generate
 
 # 4. Levantar servicios de infraestructura en Docker (PostgreSQL, Redis, MinIO, Mailpit)
-docker compose up -d
+pnpm infra:up
 
 # 5. Verificar que los contenedores estén saludables (healthy)
-docker compose ps
+pnpm infra:ps
 
 # 6. Ejecutar migraciones de base de datos y cargar datos semilla iniciales (roles y políticas base)
 pnpm --filter @prestaya/backend prisma:migrate:dev
@@ -793,3 +809,4 @@ git add .
 git commit -m "feat(modulo): descripción clara del cambio implementado"
 git push -u origin feat/nombre-del-modulo-tarea
 ```
+
