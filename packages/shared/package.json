@@ -1,0 +1,22 @@
+{
+  "name": "@prestaya/shared",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Tipos TypeScript, enums de dominio y contratos compartidos para PrestaYA",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsc",
+    "clean": "rm -rf dist",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "zod": "^3.24.2"
+  },
+  "devDependencies": {
+    "typescript": "^5.7.3"
+  }
+}
