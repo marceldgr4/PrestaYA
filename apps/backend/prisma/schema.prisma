@@ -1,0 +1,137 @@
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+// -------------------------------------------------------------
+// ENUMS DE PERSISTENCIA (Sincronizados con @prestaya/shared)
+// -------------------------------------------------------------
+
+enum UserRole {
+  USUARIO
+  ADMINISTRADOR
+}
+
+enum AccountStatus {
+  ACTIVE
+  SUSPENDED
+  BLOCKED
+  PENDING_VERIFICATION
+}
+
+enum DocumentType {
+  CC
+  CE
+  PASAPORTE
+  PEP
+  PPT
+}
+
+enum PaymentFrequency {
+  SEMANAL
+  QUINCENAL
+  MENSUAL
+}
+
+// -------------------------------------------------------------
+// MODELO: USUARIOS Y AUTENTICACIÓN
+// -------------------------------------------------------------
+
+model User {
+  id                   String        @id @default(uuid()) @db.Uuid
+  email                String        @unique @db.VarChar(255)
+  phone                String        @unique @db.VarChar(20)
+  passwordHash         String        @map("password_hash") @db.Text
+  role                 UserRole      @default(USUARIO)
+  accountStatus        AccountStatus @default(PENDING_VERIFICATION) @map("account_status")
+  mfaSecretEncrypted   String?       @map("mfa_secret_encrypted") @db.Text
+  mfaEnabled           Boolean       @default(false) @map("mfa_enabled")
+  createdAt            DateTime      @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt            DateTime      @updatedAt @map("updated_at") @db.Timestamptz
+
+  profile              UserProfile?
+  auditLogs            AuditLog[]    @relation("UserAuditLogs")
+  approvedRatePolicies RatePolicy[]  @relation("ApprovedPolicies")
+
+  @@map("users")
+}
+
+// -------------------------------------------------------------
+// MODELO: PERFIL DEL USUARIO (KYC)
+// -------------------------------------------------------------
+
+model UserProfile {
+  id                     String       @id @default(uuid()) @db.Uuid
+  userId                 String       @unique @map("user_id") @db.Uuid
+  firstName              String       @map("first_name") @db.VarChar(100)
+  lastName               String       @map("last_name") @db.VarChar(100)
+  documentType           DocumentType @map("document_type")
+  documentNumberEncrypted String       @map("document_number_encrypted") @db.Text
+  documentNumberHash     String       @unique @map("document_number_hash") @db.VarChar(64)
+  documentMasked         String       @map("document_masked") @db.VarChar(20)
+  documentIssueDate      DateTime?    @map("document_issue_date") @db.Date
+  address                String       @db.Text
+  city                   String       @db.VarChar(100)
+  department             String       @db.VarChar(100)
+  kycVerifiedAt          DateTime?    @map("kyc_verified_at") @db.Timestamptz
+  createdAt              DateTime     @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt              DateTime     @updatedAt @map("updated_at") @db.Timestamptz
+
+  user                   User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([documentNumberHash], map: "idx_user_profiles_doc_hash")
+  @@map("user_profiles")
+}
+
+// -------------------------------------------------------------
+// MODELO: POLÍTICAS DE TASAS Y CONTROL LEGAL DE USURA
+// -------------------------------------------------------------
+
+model RatePolicy {
+  id                    String           @id @default(uuid()) @db.Uuid
+  name                  String           @db.VarChar(100)
+  frequency             PaymentFrequency
+  nominalPeriodRate     Decimal          @map("nominal_period_rate") @db.Decimal(10, 6)
+  effectiveAnnualRate   Decimal          @map("effective_annual_rate") @db.Decimal(10, 6)
+  legalUsuryCapEa       Decimal          @map("legal_usury_cap_ea") @db.Decimal(10, 6)
+  amortizationMethod    String           @default("FRENCH_FIXED_FEE") @map("amortization_method") @db.VarChar(30)
+  graceDays             Int              @default(0) @map("grace_days")
+  isEnabledForProduction Boolean         @default(false) @map("is_enabled_for_production")
+  effectiveFrom         DateTime         @map("effective_from") @db.Timestamptz
+  effectiveTo           DateTime?        @map("effective_to") @db.Timestamptz
+  legalSourceRef        String           @map("legal_source_ref") @db.Text
+  approvedById          String?          @map("approved_by") @db.Uuid
+  createdAt             DateTime         @default(now()) @map("created_at") @db.Timestamptz
+
+  approvedBy            User?            @relation("ApprovedPolicies", fields: [approvedById], references: [id])
+
+  @@map("rate_policies")
+}
+
+// -------------------------------------------------------------
+// MODELO: AUDITORÍA INMUTABLE (APPEND-ONLY)
+// -------------------------------------------------------------
+
+model AuditLog {
+  id            String    @id @default(uuid()) @db.Uuid
+  actorId       String?   @map("actor_id") @db.Uuid
+  actorRole     String?   @map("actor_role") @db.VarChar(20)
+  action        String    @db.VarChar(80)
+  entityType    String    @map("entity_type") @db.VarChar(50)
+  entityId      String    @map("entity_id") @db.Uuid
+  beforeState   Json?     @map("before_state")
+  afterState    Json?     @map("after_state")
+  reason        String?   @db.Text
+  ipAddress     String?   @map("ip_address") @db.VarChar(45)
+  correlationId String    @map("correlation_id") @db.Uuid
+  occurredAt    DateTime  @default(now()) @map("occurred_at") @db.Timestamptz
+
+  actor         User?     @relation("UserAuditLogs", fields: [actorId], references: [id])
+
+  @@index([entityType, entityId, occurredAt(sort: Desc)], map: "idx_audit_logs_entity_time")
+  @@map("audit_logs")
+}
